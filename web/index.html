@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Caption Baby</title>
+  <link rel="stylesheet" href="editor.css">
+  <script src="editor.js" defer></script>
+  <script src="workspace.js" defer></script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="./"><span class="mark" aria-hidden="true"><i></i><i></i><i></i></span>Caption Baby</a>
+    <div class="project"><span class="project-dot"></span><span id="source-name">Untitled timeline</span></div>
+    <div class="header-actions">
+      <button id="resolve" title="Capture from an active Resolve Studio timeline">Resolve Studio</button>
+      <button id="open-wav" class="primary">Open WAV</button>
+    </div>
+  </header>
+  <div class="model-toolbar">
+    <label for="model-choice">Transcription model</label>
+    <select id="model-choice" disabled><option>Loading models…</option></select>
+    <span id="model-detail" aria-live="polite"></span>
+    <button id="download-model" class="small" hidden>Download model</button>
+  </div>
+
+  <main class="workspace">
+    <section class="viewer panel" aria-labelledby="viewer-heading">
+      <div class="panel-heading">
+        <h1 id="viewer-heading">Viewer</h1>
+        <label class="switch"><input id="guides" type="checkbox"> <span>Safe area</span></label>
+        <button id="open-video" class="small">Open video</button>
+        <button id="expand-viewer" class="small" aria-label="Expand preview">Expand</button>
+      </div>
+      <div id="video-tools" class="video-tools" hidden>
+        <label id="track-label" for="audio-track">Audio track</label>
+        <select id="audio-track"></select>
+        <button id="caption-video" class="primary small">Generate captions</button>
+      </div>
+      <div id="stage" class="stage">
+        <div id="viewport" class="viewport">
+          <video id="preview" playsinline preload="metadata" hidden></video>
+          <div id="empty-preview" class="empty-preview">
+            <div class="empty-icon" aria-hidden="true">▶</div>
+            <strong>No video loaded</strong>
+            <span>Open a video to preview your captions.</span><button id="empty-open-video" class="small">Open video</button>
+          </div>
+          <div class="safe-area" hidden></div>
+          <div id="overlay" class="caption-overlay" data-look="Editorial" hidden></div>
+        </div>
+      </div>
+      <div class="transport">
+        <button id="previous" class="compact" aria-label="Previous caption" title="Previous caption">‹</button>
+        <button id="play" class="play compact" aria-label="Play" title="Play or pause" disabled>▶</button>
+        <button id="next" class="compact" aria-label="Next caption" title="Next caption">›</button>
+        <input id="seek" type="range" min="0" max="1" step="0.01" value="0" aria-label="Playback position">
+        <output id="position">00:00.00</output>
+      </div>
+    </section>
+
+    <section class="transcript panel" aria-labelledby="transcript-heading">
+      <div class="panel-heading"><h2 id="transcript-heading">Transcript</h2><span id="cue-count" class="count">0</span></div>
+      <div class="search"><input id="search" type="search" placeholder="Find in transcript" aria-label="Find in transcript"></div>
+      <div id="cue-list" class="cue-list"></div>
+      <div id="empty-transcript" class="empty-transcript">
+        <strong>Open a video or WAV</strong>
+        <p>Generate editable captions from a video or timeline audio.</p><button id="empty-open-wav" class="small">Open WAV</button>
+      </div>
+    </section>
+
+    <aside class="inspector panel" aria-labelledby="inspector-heading">
+      <div class="panel-heading"><h2 id="inspector-heading">Inspector</h2></div>
+      <div class="inspector-body">
+        <label class="eyebrow" for="cue-text">Caption text</label>
+        <div id="cue-time" class="cue-time">No caption selected</div>
+        <textarea id="cue-text" rows="4" placeholder="Select a transcript row to edit" disabled></textarea>
+        <button id="save" class="small" disabled>Save edit</button>
+        <button id="uppercase" class="small" disabled>UPPERCASE</button>
+        <button id="lowercase" class="small" disabled>lowercase</button>
+        <div class="divider"></div>
+        <div class="eyebrow">Style a word</div>
+        <div id="word-list" class="word-list"></div>
+        <label class="range-label" for="word-color">Color <input id="word-color" type="color" value="#ffffff" disabled></label>
+        <label class="range-label" for="word-size">Size
+          <select id="word-size" disabled><option value="80">Small</option><option value="100" selected>Normal</option><option value="125">Large</option></select>
+        </label>
+        <div class="divider"></div>
+        <div class="eyebrow">Preview look</div>
+        <div class="looks" aria-label="Preview look">
+          <button class="look" data-look="Editorial" aria-pressed="true"><span>Aa</span><small>Editorial</small></button>
+          <button class="look" data-look="Clean" aria-pressed="false"><span>Aa</span><small>Clean</small></button>
+          <button class="look" data-look="Block" aria-pressed="false"><span>Aa</span><small>Block</small></button>
+        </div>
+        <label class="range-label" for="text-size"><span>Size</span><output id="size-value">100%</output></label>
+        <input id="text-size" type="range" min="70" max="135" value="100">
+        <label class="range-label" for="caption-height"><span>Vertical position</span><output id="height-value">74%</output></label>
+        <input id="caption-height" type="range" min="20" max="88" value="74">
+        <p class="export-note">Word colors and sizes appear in the MP4 export.</p>
+      </div>
+    </aside>
+
+    <section class="timeline panel" aria-labelledby="timeline-heading">
+      <div class="panel-heading"><button id="timeline-toggle" aria-expanded="false" aria-controls="timeline-content">Timeline <span class="timeline-chevron" aria-hidden="true"></span></button><output id="duration">00:00.00</output></div>
+      <div id="timeline-content" class="timeline-body" hidden>
+        <span class="track-label">Captions</span>
+        <div id="track" class="track" aria-label="Caption timeline">
+          <div id="ruler" class="ruler"></div>
+          <div id="blocks" class="blocks"></div>
+          <div id="playhead" class="playhead"></div>
+        </div>
+      </div>
+    </section>
+  </main>
+  <footer class="statusbar">
+    <span id="status" role="status" aria-live="polite">Ready</span>
+    <div class="footer-actions">
+      <button id="show-output" class="small" disabled>Show in Explorer</button>
+      <button id="export-video" class="small" disabled>Burn captions (MP4)</button>
+      <button id="export-original" class="small" title="Copy the original video and audio streams with a selectable subtitle track" disabled>Export original quality (MKV)</button>
+      <a id="download" class="button small" href="api/subtitle" download hidden>Download SRT</a>
+      <button id="close" class="small quiet">Stop editor</button>
+    </div>
+  </footer>
+  <input id="wav-file" type="file" accept=".wav,audio/wav" hidden>
+</body>
+</html>

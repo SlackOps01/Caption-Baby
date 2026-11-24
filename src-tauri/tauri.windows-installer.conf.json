@@ -1,0 +1,9 @@
+{
+  "bundle": {
+    "active": true,
+    "targets": ["nsis"],
+    "resources": { "target/windows-payload/": "engine/" },
+    "windows": { "nsis": { "compression": "zlib" }, "webviewInstallMode": { "type": "offlineInstaller", "silent": true } }
+  }
+}
+

@@ -1,0 +1,8 @@
+.venv/
+.caption-baby-exports/
+__pycache__/
+*.pyc
+src-tauri/target/
+# Local sample media
+/YT Timeline 1 - Caption Baby.mov
+/YT Timeline 1 - Caption Baby.wav
