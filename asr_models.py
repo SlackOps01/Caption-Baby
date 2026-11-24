@@ -85,14 +85,22 @@ def download_whistle():
     if not (target / "cactus").is_dir():
         with TemporaryDirectory(dir=folder) as temporary:
             staging = Path(temporary) / "runtime"
-            result = run(
-                [sys.executable, "-m", "pip", "install", "--disable-pip-version-check",
-                 "--no-deps", "--target", str(staging), "cactus-compute==4.2.7"],
-                stdin=DEVNULL, stdout=PIPE, stderr=STDOUT, text=True, timeout=180,
-                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
-            )
-            if result.returncode:
-                raise RuntimeError("Whistle's optional decoder could not be installed. " + result.stdout)
+            if getattr(sys, "frozen", False):
+                from pip._internal.cli.main import main as pip_main
+
+                status = pip_main(["install", "--disable-pip-version-check", "--no-deps",
+                                   "--target", str(staging), "cactus-compute==4.2.7"])
+                if status:
+                    raise RuntimeError("Whistle's optional decoder could not be installed.")
+            else:
+                result = run(
+                    [sys.executable, "-m", "pip", "install", "--disable-pip-version-check",
+                     "--no-deps", "--target", str(staging), "cactus-compute==4.2.7"],
+                    stdin=DEVNULL, stdout=PIPE, stderr=STDOUT, text=True, timeout=180,
+                    creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+                )
+                if result.returncode:
+                    raise RuntimeError("Whistle's optional decoder could not be installed. " + result.stdout)
             try:
                 staging.rename(target)
             except OSError:

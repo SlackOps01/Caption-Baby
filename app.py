@@ -24,9 +24,13 @@ from resolve_bridge import active, connect, make_overlays, place_overlays, rende
 
 def run_caption_worker(arguments, log_path, timeout):
     worker = Path(__file__).resolve().with_name("captioning.py")
+    if getattr(sys, "frozen", False):
+        worker_command = [sys.executable, "--caption-worker", *map(str, arguments)]
+    else:
+        worker_command = [sys.executable, "-u", str(worker), *map(str, arguments)]
     with log_path.open("wb") as worker_log:
         completed = subprocess.run(
-            [sys.executable, "-u", str(worker), *map(str, arguments)],
+            worker_command,
             stdin=subprocess.DEVNULL, stdout=worker_log, stderr=subprocess.STDOUT,
             timeout=timeout, creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
             env={**os.environ, "PYTHONUTF8": "1"},
@@ -97,7 +101,7 @@ def caption_wav(audio, output, report, model=DEFAULT_MODEL):
     return f"Saved {len(cues)} captions to Captions.srt.", folder
 
 
-WEB = Path(__file__).resolve().parent / "web"
+WEB = (Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent)) / "web")
 TIMING = re.compile(r"\d{2,}:\d{2}:\d{2},\d{3} --> \d{2,}:\d{2}:\d{2},\d{3}")
 MAX_AUDIO_BYTES = 1024 * 1024 * 1024
 
@@ -269,8 +273,14 @@ class EditorHandler(BaseHTTPRequestHandler):
             self.save_cues()
         elif route == "api/show-output" and self.server.subtitle:
             try:
-                os.startfile((self.server.last_export or self.server.subtitle).parent)
-            except OSError as error:
+                folder = (self.server.last_export or self.server.subtitle).parent
+                if sys.platform == "win32":
+                    os.startfile(folder)
+                elif sys.platform == "darwin":
+                    subprocess.Popen(["open", str(folder)])
+                else:
+                    subprocess.Popen(["xdg-open", str(folder)])
+            except (OSError, AttributeError) as error:
                 self.respond({"message": str(error)}, HTTPStatus.BAD_REQUEST)
             else:
                 self.respond({"message": "Opened the caption folder."})
@@ -564,4 +574,11 @@ def main(from_resolve=False, desktop_engine=False):
 
 
 if __name__ == "__main__":
-    main(from_resolve="--from-resolve" in sys.argv, desktop_engine="--desktop-engine" in sys.argv)
+    if "--caption-worker" in sys.argv:
+        from captioning import run_cli
+        run_cli(sys.argv[sys.argv.index("--caption-worker") + 1:])
+    elif "--file-picker" in sys.argv:
+        from media_input import file_picker_main
+        file_picker_main(sys.argv[sys.argv.index("--file-picker") + 1:])
+    else:
+        main(from_resolve="--from-resolve" in sys.argv, desktop_engine="--desktop-engine" in sys.argv)

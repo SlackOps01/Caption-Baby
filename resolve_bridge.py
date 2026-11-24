@@ -21,6 +21,11 @@ class Timeline:
 
 
 def connect():
+    if sys.platform != "win32":
+        raise RuntimeError(
+            "Direct DaVinci Resolve timeline access is currently supported by the Windows build. "
+            "On macOS and Linux, open a WAV or video export to generate captions."
+        )
     api = Path(os.environ.get("RESOLVE_SCRIPT_API") or (
         Path(os.environ["PROGRAMDATA"])
         / "Blackmagic Design/DaVinci Resolve/Support/Developer/Scripting"

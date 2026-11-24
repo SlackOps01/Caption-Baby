@@ -56,13 +56,17 @@ def run_tool(args, timeout=None):
 
 
 def choose_video():
-    path = json.loads(run_tool([sys.executable, str(Path(__file__).resolve())]))
+    command = ([sys.executable, "--file-picker", "video"] if getattr(sys, "frozen", False)
+               else [sys.executable, str(Path(__file__).resolve())])
+    path = json.loads(run_tool(command))
     if path:
         return inspect_video(Path(path))
 
 
 def choose_export_folder():
-    selected = json.loads(run_tool([sys.executable, str(Path(__file__).resolve()), "--export-folder"], timeout=3600))
+    command = ([sys.executable, "--file-picker", "folder"] if getattr(sys, "frozen", False)
+               else [sys.executable, str(Path(__file__).resolve()), "--export-folder"])
+    selected = json.loads(run_tool(command, timeout=3600))
     return Path(selected) if selected else None
 
 
@@ -71,7 +75,7 @@ def inspect_video(path):
         raise ValueError("Choose an existing MP4, MOV, MKV, WebM, AVI, or MPEG video.")
     ffprobe = shutil.which("ffprobe")
     if not ffprobe:
-        raise RuntimeError("FFprobe is unavailable. Add the FFmpeg tools to Windows PATH and reopen Caption Baby.")
+        raise RuntimeError("FFprobe is unavailable. Reinstall Caption Baby or add FFmpeg to PATH.")
     metadata = json.loads(run_tool([
         ffprobe, "-v", "error", "-protocol_whitelist", "file,pipe", "-show_entries",
         "stream=index,codec_type,codec_name:stream_disposition=default,attached_pic:stream_tags=language,title",
@@ -96,7 +100,7 @@ def inspect_video(path):
 def extract_audio(video, track_index, destination):
     ffmpeg = shutil.which("ffmpeg")
     if not ffmpeg:
-        raise RuntimeError("FFmpeg is unavailable. Add it to Windows PATH and reopen Caption Baby.")
+        raise RuntimeError("FFmpeg is unavailable. Reinstall Caption Baby or add FFmpeg to PATH.")
     run_tool([
         ffmpeg, "-nostdin", "-v", "error", "-protocol_whitelist", "file,pipe",
         "-copyts", "-start_at_zero",
@@ -106,14 +110,14 @@ def extract_audio(video, track_index, destination):
     ], timeout=1800)
 
 
-if __name__ == "__main__":
+def file_picker_main(arguments=()):
     from tkinter import Tk, filedialog
 
     window = Tk()
     window.withdraw()
     window.attributes("-topmost", True)
     try:
-        if "--export-folder" in sys.argv:
+        if "folder" in arguments or "--export-folder" in sys.argv:
             selected = filedialog.askdirectory(parent=window, title="Choose captioned video export folder")
         else:
             selected = filedialog.askopenfilename(
@@ -123,3 +127,7 @@ if __name__ == "__main__":
         print(json.dumps(selected))
     finally:
         window.destroy()
+
+
+if __name__ == "__main__":
+    file_picker_main(sys.argv[1:])

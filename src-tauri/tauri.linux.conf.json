@@ -1,0 +1,9 @@
+{
+  "bundle": {
+    "active": true,
+    "targets": ["appimage", "deb"],
+    "resources": { "target/portable-payload/caption-baby-engine/": "engine/" },
+    "icon": ["icons/icon.png"],
+    "linux": { "appimage": { "bundleMediaFramework": true } }
+  }
+}

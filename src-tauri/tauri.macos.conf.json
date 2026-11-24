@@ -1,0 +1,8 @@
+{
+  "bundle": {
+    "active": true,
+    "targets": ["dmg"],
+    "resources": { "target/portable-payload/caption-baby-engine/": "engine/" },
+    "icon": ["icons/icon.icns"]
+  }
+}

@@ -119,13 +119,18 @@ def write_srt(path, cues, fps):
     ]
     path.write_text("\n\n".join(blocks) + "\n", encoding="utf-8")
 
-if __name__ == "__main__":
-    if sys.argv[1] == "--download":
+def run_cli(arguments=None):
+    arguments = list(sys.argv[1:] if arguments is None else arguments)
+    if arguments[0] == "--download":
         download = {"aurora": download_aurora, "whistle": download_whistle,
                     DEFAULT_MODEL: parakeet_recognizer}
-        download[sys.argv[2]]()
+        download[arguments[1]]()
     else:
-        audio, output = map(Path, sys.argv[1:3])
-        model = sys.argv[3] if len(sys.argv) > 3 else DEFAULT_MODEL
+        audio, output = map(Path, arguments[:2])
+        model = arguments[2] if len(arguments) > 2 else DEFAULT_MODEL
         captions = transcribe(audio, lambda message: print(message, file=sys.stderr, flush=True), model)
         output.write_text(json.dumps([asdict(caption) for caption in captions]), encoding="utf-8")
+
+
+if __name__ == "__main__":
+    run_cli()

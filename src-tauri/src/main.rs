@@ -52,30 +52,44 @@ fn local_endpoint(line: &str) -> Option<Url> {
 
 fn start_engine(app: &tauri::App) -> Result<(Engine, Url), String> {
     let bundled = app.path().resource_dir().ok().map(|folder| folder.join("engine"));
-    let (root, data, python) = if let Some(root) = bundled.filter(|root| root.join("app.py").is_file()) {
+    let (root, data, executable, bundled_python) = if let Some(root) = bundled.filter(|root| {
+        root.join("app.py").is_file()
+            || root.join(if cfg!(windows) { "caption-baby-engine.exe" } else { "caption-baby-engine" }).is_file()
+    }) {
         let data = app.path().app_local_data_dir().map_err(|error| error.to_string())?;
-        let python = root.join("python").join("python.exe");
-        (root, data, python)
+        let bundled_python = root.join("app.py").is_file();
+        let executable = if bundled_python {
+            root.join("python").join("python.exe")
+        } else {
+            root.join(if cfg!(windows) { "caption-baby-engine.exe" } else { "caption-baby-engine" })
+        };
+        (root, data, executable, bundled_python)
     } else {
         let root = workspace()?;
         let data = root.join(".venv");
-        let python = data.join("Scripts").join("python.exe");
-        (root, data, python)
+        let executable = if cfg!(windows) {
+            data.join("Scripts").join("python.exe")
+        } else {
+            data.join("bin").join("python")
+        };
+        (root, data, executable, true)
     };
-    if !python.is_file() {
+    if !executable.is_file() {
         return Err("The Python environment is missing. Run Setup Caption Baby.cmd.".into());
     }
     std::fs::create_dir_all(&data).map_err(|error| error.to_string())?;
     let log_path = data.join(format!("desktop-engine-{}.log", std::process::id()));
     let log = File::create(&log_path).map_err(|error| error.to_string())?;
     let search_path = std::env::join_paths(
-        std::iter::once(root.clone()).chain(
+        std::iter::once(root.join("bin")).chain(std::iter::once(root.clone())).chain(
             std::env::var_os("PATH").iter().flat_map(std::env::split_paths)
         )
     ).map_err(|error| error.to_string())?;
-    let mut command = Command::new(python);
+    let mut command = Command::new(executable);
+    if bundled_python {
+        command.arg(root.join("app.py"));
+    }
     command
-        .arg(root.join("app.py"))
         .arg("--desktop-engine")
         .current_dir(&root)
         .env("PATH", search_path)
