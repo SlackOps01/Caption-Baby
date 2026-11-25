@@ -31,6 +31,7 @@ Select a model in the toolbar and click **Download model** if it is missing. No 
 | --- | ---: | --- | --- |
 | [AuroraASR 1M ONNX](https://huggingface.co/mrfakename/AuroraASR-1M-ONNX) | 3.9 MB | Fast experimental English. Expect rougher wording, approximate timing and no punctuation. | Apache 2.0 |
 | [Cactus Whistle](https://huggingface.co/Cactus-Compute/whistle) | 16.9 MB | Compact decoder with word timestamps in seven languages. Also downloads its platform runtime. | Apache 2.0 |
+| [Moonshine Tiny and Base](https://github.com/moonshine-ai/moonshine/blob/main/docs/models/available-models.md) | About 44 MB (Tiny), 141 MB (Base) | English CPU models with estimated word timing. Model sizes exclude the shared runtime, its dependencies, and the optional spelling model (about 1.7 MB). **Download model** handles setup. Supports Windows x64, Linux x64 with glibc 2.34 or newer, and Apple Silicon on macOS 15 or newer. | MIT |
 | [NVIDIA Parakeet v3 ONNX](https://huggingface.co/istupakov/parakeet-tdt-0.6b-v3-onnx) | About 673 MB | Higher-accuracy option with 25 languages. Includes the Silero speech detector download. | CC BY 4.0 for Parakeet |
 
 Keep the active timeline and its edits in place when transcribing directly from Resolve Studio.

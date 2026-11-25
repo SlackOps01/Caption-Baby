@@ -9,8 +9,9 @@ import sys
 import textwrap
 from tempfile import TemporaryDirectory
 
-from asr_models import (DEFAULT_MODEL, MODELS, aurora_segments, download_aurora,
-                        download_whistle, mono_wav, whistle_segments)
+from asr_models import (DEFAULT_MODEL, MODELS, MOONSHINE_MODELS, aurora_segments,
+                        download_aurora, download_whistle, mono_wav, moonshine_engine,
+                        moonshine_segments, whistle_segments)
 
 
 @dataclass(frozen=True)
@@ -37,10 +38,14 @@ def parakeet_recognizer():
 def transcribe(path, report, model=DEFAULT_MODEL):
     if model != DEFAULT_MODEL:
         report(f"Transcribing with {MODELS[model]['name']}…")
-        decoder = aurora_segments if model == "aurora" else whistle_segments
         with TemporaryDirectory(prefix="caption-baby-pcm-") as folder:
             source = mono_wav(path, Path(folder))
-            return [cue for segment in decoder(source) for cue in group_words(segment)]
+            if model in MOONSHINE_MODELS:
+                segments = moonshine_segments(source, model)
+            else:
+                decoder = aurora_segments if model == "aurora" else whistle_segments
+                segments = decoder(source)
+            return [cue for segment in segments for cue in group_words(segment)]
     report("Preparing Parakeet. Model files download on first use.")
     recognizer = parakeet_recognizer()
     report("Transcribing the timeline audio locally...")
@@ -122,6 +127,9 @@ def write_srt(path, cues, fps):
 def run_cli(arguments=None):
     arguments = list(sys.argv[1:] if arguments is None else arguments)
     if arguments[0] == "--download":
+        if arguments[1] in MOONSHINE_MODELS:
+            moonshine_engine(arguments[1]).close()
+            return
         download = {"aurora": download_aurora, "whistle": download_whistle,
                     DEFAULT_MODEL: parakeet_recognizer}
         download[arguments[1]]()

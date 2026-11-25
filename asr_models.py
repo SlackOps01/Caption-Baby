@@ -1,6 +1,7 @@
 ﻿"""Optional local ASR models, their download assets, and small-model decoders."""
 from functools import lru_cache
 from hashlib import sha256
+from importlib.util import find_spec
 from pathlib import Path
 from subprocess import DEVNULL, PIPE, STDOUT, run
 from tempfile import TemporaryDirectory
@@ -8,6 +9,7 @@ from types import SimpleNamespace
 from urllib.request import urlopen
 import json
 import os
+import platform
 import shutil
 import subprocess
 import sys
@@ -27,14 +29,20 @@ PARAKEET_FILES = {
     "istupakov/silero-vad-onnx": ("config.json", "silero_vad.onnx"),
 }
 DEFAULT_MODEL = "parakeet"
+MOONSHINE_MODELS = {"moonshine-tiny": "TINY", "moonshine-base": "BASE"}
+MOONSHINE_RUNTIME = CACHE / "moonshine-runtime-0.1.6"
 MODELS = {
     "aurora": {"name": "AuroraASR 1M", "size": "3.9 MB", "language": "English", "note": "Experimental · no punctuation"},
     "whistle": {"name": "Cactus Whistle", "size": "16.9 MB", "language": "7 languages", "note": "Compact · optional runtime"},
+    "moonshine-tiny": {"name": "Moonshine Tiny", "size": "≈44 MB", "language": "English", "note": "Model size · shared runtime extra · estimated word timing"},
+    "moonshine-base": {"name": "Moonshine Base", "size": "≈141 MB", "language": "English", "note": "Model size · shared runtime extra · estimated word timing"},
     "parakeet": {"name": "Parakeet v3", "size": "≈673 MB", "language": "25 languages", "note": "Higher accuracy"},
 }
 
 
 def is_installed(model):
+    if model in MOONSHINE_MODELS:
+        return moonshine_runtime_installed() and moonshine_model_path(model) is not None
     if model == "aurora":
         folder = CACHE / model
         return all((folder / name).is_file() and (folder / name).stat().st_size == size
@@ -48,7 +56,107 @@ def is_installed(model):
 
 
 def model_list():
-    return [{"id": name, **details, "installed": is_installed(name)} for name, details in MODELS.items()]
+    moonshine_available = moonshine_runtime_installed() or moonshine_platform_supported()
+    return [{"id": name, **details, "installed": is_installed(name)}
+            for name, details in MODELS.items() if moonshine_available or name not in MOONSHINE_MODELS]
+
+
+def moonshine_runtime_installed():
+    return ((MOONSHINE_RUNTIME / "moonshine_voice" / "__init__.py").is_file()
+            or find_spec("moonshine_voice") is not None)
+
+
+def moonshine_platform_supported():
+    machine = platform.machine().lower()
+    if sys.platform == "win32":
+        return machine in {"amd64", "x86_64"} and sys.maxsize > 2**32
+    if sys.platform == "darwin":
+        return machine == "arm64" and int(platform.release().split(".")[0]) >= 24
+    if sys.platform == "linux" and machine == "x86_64":
+        try:
+            name, version = os.confstr("CS_GNU_LIBC_VERSION").split()
+            return name == "glibc" and tuple(map(int, version.split(".")[:2])) >= (2, 34)
+        except (AttributeError, OSError, ValueError):
+            return False
+    return False
+
+
+def prepare_moonshine_runtime():
+    if not moonshine_runtime_installed():
+        if not moonshine_platform_supported():
+            raise RuntimeError("Moonshine has no compatible runtime for this platform.")
+        CACHE.mkdir(parents=True, exist_ok=True)
+        with TemporaryDirectory(dir=CACHE) as temporary:
+            staging = Path(temporary) / "runtime"
+            args = ["install", "--disable-pip-version-check", "--only-binary=:all:",
+                    "--target", str(staging), "moonshine-voice==0.1.6"]
+            if getattr(sys, "frozen", False):
+                from pip._internal.cli.main import main as pip_main
+                status = pip_main(args)
+            else:
+                status = run([sys.executable, "-m", "pip", *args], stdin=DEVNULL,
+                             timeout=600, creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0)).returncode
+            if status or not (staging / "moonshine_voice" / "__init__.py").is_file():
+                raise RuntimeError("Could not install the Moonshine runtime.")
+            try:
+                staging.rename(MOONSHINE_RUNTIME)
+            except OSError:
+                if not moonshine_runtime_installed():
+                    raise
+    if MOONSHINE_RUNTIME.is_dir() and str(MOONSHINE_RUNTIME) not in sys.path:
+        sys.path.insert(0, str(MOONSHINE_RUNTIME))
+
+
+def moonshine_model_path(model):
+    cache = CACHE / model
+    try:
+        folder = cache / (cache / "ready").read_text(encoding="utf-8")
+    except OSError:
+        return None
+    files = ("encoder_model.ort", "decoder_model_merged.ort", "tokenizer.bin")
+    return folder if all((folder / name).is_file() for name in files) else None
+
+
+def moonshine_engine(model):
+    prepare_moonshine_runtime()
+    from moonshine_voice import ModelArch, Transcriber, get_model_for_language
+
+    arch = getattr(ModelArch, MOONSHINE_MODELS[model])
+    cache = (CACHE / model).resolve()
+    folder = moonshine_model_path(model)
+    if folder is None:
+        path, arch = get_model_for_language("en", arch, cache_root=cache)
+        folder = Path(path).resolve()
+    engine = Transcriber(model_path=str(folder), model_arch=arch)
+    if not is_installed(model):
+        with TemporaryDirectory(dir=cache) as temporary:
+            ready = Path(temporary) / "ready"
+            ready.write_text(str(folder.resolve().relative_to(cache)), encoding="utf-8")
+            ready.replace(cache / "ready")
+    return engine
+
+
+def moonshine_segments(path, model):
+    prepare_moonshine_runtime()
+    from moonshine_voice import load_wav_file
+
+    audio, sample_rate = load_wav_file(str(path))
+    block_size = 60 * sample_rate
+    with moonshine_engine(model) as engine:
+        for offset in range(0, len(audio), block_size):
+            block = audio[offset:offset + block_size]
+            transcript = engine.transcribe_without_streaming(block, sample_rate)
+            for line in transcript.lines:
+                words = line.text.split()
+                if words and line.duration > 0:
+                    start = offset / sample_rate + max(0, line.start_time)
+                    end = min(start + line.duration, (offset + len(block)) / sample_rate)
+                    if end > start:
+                        yield SimpleNamespace(
+                            start=start, end=end, tokens=[" " + word for word in words],
+                            timestamps=[index * (end - start) / len(words)
+                                        for index in range(len(words))],
+                        )
 
 
 def download_aurora():

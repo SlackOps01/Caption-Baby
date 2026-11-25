@@ -10,8 +10,8 @@
   rail.setAttribute("aria-label", "Workspace");
   const icon = (paths) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths}</svg>`;
   const captionsIcon = icon('<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M7 10h4m2 0h4M7 14h3m2 0h5"/>');
-  const settingsIcon = icon('<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-1.86 3.22-.08-.02a1.7 1.7 0 0 0-1.8.63l-.05.07h-3.72l-.04-.07a1.7 1.7 0 0 0-1.8-.63l-.09.02-1.86-3.22.06-.06A1.7 1.7 0 0 0 8.9 15l-.02-.08-1.86-1.07v-3.7L8.9 9.08l.02-.08a1.7 1.7 0 0 0-.34-1.88l-.06-.06 1.86-3.22.08.02a1.7 1.7 0 0 0 1.8-.63l.05-.07h3.72l.04.07a1.7 1.7 0 0 0 1.8.63l.09-.02 1.86 3.22-.06.06A1.7 1.7 0 0 0 19.4 9l.02.08 1.86 1.07v3.7l-1.86 1.07z" transform="translate(-2.15 0)"/>');
-  rail.innerHTML = `<button class="rail-current" aria-current="page" title="Captions"><span class="rail-icon">${captionsIcon}</span><span>Captions</span></button><button class="rail-settings" title="Model settings" aria-expanded="false"><span class="rail-icon">${settingsIcon}</span><span>Models</span></button>`;
+  const modelsIcon = icon('<rect x="6" y="6" width="12" height="12" rx="2"/><rect x="9" y="9" width="6" height="6" rx="1"/><path d="M9 3v3m6-3v3M9 18v3m6-3v3M3 9h3m-3 6h3m12-6h3m-3 6h3"/>');
+  rail.innerHTML = `<button class="rail-current" aria-current="page" title="Captions"><span class="rail-icon">${captionsIcon}</span><span>Captions</span></button><button class="rail-settings" title="Model settings" aria-expanded="false"><span class="rail-icon">${modelsIcon}</span><span>Models</span></button>`;
   root.insertBefore(rail, workspace);
   rail.querySelector(".rail-settings").addEventListener("click", () => {
     model.hidden = !model.hidden;

@@ -211,7 +211,17 @@ function activeCue(time) {
 function showCaption(index) {
   if (visibleCaption !== index) {
     nodes[visibleCaption]?.classList.remove("is-playing");
-    nodes[index]?.classList.add("is-playing");
+    const row = nodes[index];
+    row?.classList.add("is-playing");
+    if (row && ready && !video.paused) {
+      const listBounds = transcript.getBoundingClientRect();
+      const top = listBounds.top + transcript.clientTop;
+      const bottom = top + transcript.clientHeight;
+      const bounds = row.getBoundingClientRect();
+      if (bounds.top < top || bounds.bottom > bottom) {
+        transcript.scrollTop += bounds.top < top ? bounds.top - top : bounds.bottom - bottom;
+      }
+    }
     visibleCaption = index;
   }
   const overlay = $("overlay");
